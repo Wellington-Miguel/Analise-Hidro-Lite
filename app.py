@@ -20,12 +20,10 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
 
             for arquivo in arquivos_csv:
                 with zip_ref.open(arquivo) as f:
-                    # --- NOVA LÓGICA DE DETEÇÃO AUTOMÁTICA ---
-                    # 1. Espreita a primeira linha para detetar o separador
+                    # Lógica de deteção automática do separador
                     primeira_linha = f.readline().decode('iso-8859-1')
-                    f.seek(0) # Volta ao início do ficheiro para a leitura do pandas
+                    f.seek(0)
 
-                    # 2. Define as regras com base no separador encontrado
                     if ';' in primeira_linha:
                         separador = ';'
                         posicao_vazao = 4
@@ -33,22 +31,18 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
                         separador = ','
                         posicao_vazao = 5
 
-                    # 3. Lê o ficheiro usando as regras corretas
                     df = pd.read_csv(f, encoding='ISO-8859-1', header=None, sep=separador)
                     
                     if df.empty:
                         continue
 
-                    # Garante que o ficheiro tem colunas suficientes
                     if df.shape[1] <= posicao_vazao:
                         st.warning(f"O ficheiro '{arquivo}' tem um formato inesperado e foi ignorado.")
                         continue
                         
-                    # Usa a posição correta da vazão para a seleção
                     df_filtrado = df.iloc[:, [0, 1, 2, posicao_vazao]].copy()
                     df_filtrado.columns = ['id', 'data', 'hora', 'vazao_total']
                     
-                    # Trata a vírgula como decimal, caso exista, antes de converter para número
                     df_filtrado['vazao_total'] = pd.to_numeric(
                         df_filtrado['vazao_total'].astype(str).str.replace(',', '.'), 
                         errors='coerce'
@@ -112,7 +106,11 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             workbook = writer.book
             worksheet = writer.sheets['Resumo Mensal']
 
-            header_format = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'fg_color': '#D7E4BC', 'border': 1})
+            # --- MUDANÇA 1: Alterando a cor do cabeçalho ---
+            header_format = workbook.add_format({
+                'bold': True, 'text_wrap': True, 'valign': 'vcenter', 
+                'align': 'center', 'fg_color': '#dce6f1', 'border': 1
+            })
             integer_format = workbook.add_format({'num_format': '#,##0', 'align': 'center', 'valign': 'vcenter'})
             text_format = workbook.add_format({'num_format': '@', 'align': 'center', 'valign': 'vcenter'})
 
@@ -125,12 +123,13 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             for col_num, value in enumerate(df_final_formatado.columns.values):
                 worksheet.write(0, col_num, value, header_format)
 
-            worksheet.set_column('A:A', 18)
-            worksheet.set_column('B:B', 18)
-            worksheet.set_column('C:C', 22, integer_format)
-            worksheet.set_column('D:D', 20, text_format)
-            worksheet.set_column('E:E', 20, integer_format)
-            worksheet.set_column('F:F', 15)
+            # --- MUDANÇA 2: Aplicando formato centralizado a todas as colunas ---
+            worksheet.set_column('A:A', 18, text_format) # Data
+            worksheet.set_column('B:B', 18, text_format) # Hora Leitura
+            worksheet.set_column('C:C', 35, integer_format) # Leitura do medidor
+            worksheet.set_column('D:D', 20, text_format) # Consumo (m³/dia)
+            worksheet.set_column('E:E', 30, integer_format) # Vazão Outorgada
+            worksheet.set_column('F:F', 15, text_format) # Situação
 
             chart = workbook.add_chart({'type': 'column'})
             chart.add_series({'name': "='Resumo Mensal'!$D$1", 'categories': f"='Resumo Mensal'!$A$2:$A${num_dias + 1}", 'values': f"='Resumo Mensal'!$D$2:$D${num_dias + 1}"})
