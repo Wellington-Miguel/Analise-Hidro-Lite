@@ -127,7 +127,7 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             worksheet.set_column('A:A', 18, text_format) # Data
             worksheet.set_column('B:B', 18, text_format) # Hora Leitura
             worksheet.set_column('C:C', 35, integer_format) # Leitura do medidor
-            worksheet.set_column('D:D', 20, text_format) # Consumo (m³/dia)
+            worksheet.set_column('D:D', 20, integer_format) # Consumo (m³/dia)
             worksheet.set_column('E:E', 30, integer_format) # Vazão Outorgada
             worksheet.set_column('F:F', 15, text_format) # Situação
 
