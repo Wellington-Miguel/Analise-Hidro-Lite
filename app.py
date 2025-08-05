@@ -76,8 +76,12 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
         
         df_final['vazao_diaria'] = df_final['vazao_total_final'].diff().fillna(0)
         
+        # Lógica da situação (agora sem a sobreposição)
         df_final['situacao'] = np.where(df_final['vazao_diaria'] < df_final['vazao_outorgada'], 'Irregular', 'Regular')
-        df_final.loc[0, 'situacao'] = 'Regular'
+        
+        # --- LINHA REMOVIDA ---
+        # A linha abaixo foi removida para permitir que o cálculo principal funcione corretamente para o primeiro dia.
+        # df_final.loc[0, 'situacao'] = 'Regular'
 
         ordem_colunas = ['data', 'hora_final', 'vazao_total_final', 'vazao_diaria', 'vazao_outorgada', 'situacao']
         df_final = df_final[ordem_colunas]
@@ -106,11 +110,7 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             workbook = writer.book
             worksheet = writer.sheets['Resumo Mensal']
 
-            # --- MUDANÇA 1: Alterando a cor do cabeçalho ---
-            header_format = workbook.add_format({
-                'bold': True, 'text_wrap': True, 'valign': 'vcenter', 
-                'align': 'center', 'fg_color': '#dce6f1', 'border': 1
-            })
+            header_format = workbook.add_format({'bold': True, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'fg_color': '#dce6f1', 'border': 1})
             integer_format = workbook.add_format({'num_format': '#,##0', 'align': 'center', 'valign': 'vcenter'})
             text_format = workbook.add_format({'num_format': '@', 'align': 'center', 'valign': 'vcenter'})
 
@@ -123,13 +123,12 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             for col_num, value in enumerate(df_final_formatado.columns.values):
                 worksheet.write(0, col_num, value, header_format)
 
-            # --- MUDANÇA 2: Aplicando formato centralizado a todas as colunas ---
-            worksheet.set_column('A:A', 18, text_format) # Data
-            worksheet.set_column('B:B', 18, text_format) # Hora Leitura
-            worksheet.set_column('C:C', 35, integer_format) # Leitura do medidor
-            worksheet.set_column('D:D', 20, integer_format) # Consumo (m³/dia)
-            worksheet.set_column('E:E', 30, integer_format) # Vazão Outorgada
-            worksheet.set_column('F:F', 15, text_format) # Situação
+            worksheet.set_column('A:A', 18, text_format)
+            worksheet.set_column('B:B', 18, text_format)
+            worksheet.set_column('C:C', 35, integer_format)
+            worksheet.set_column('D:D', 20, text_format)
+            worksheet.set_column('E:E', 30, integer_format)
+            worksheet.set_column('F:F', 15, text_format)
 
             chart = workbook.add_chart({'type': 'column'})
             chart.add_series({'name': "='Resumo Mensal'!$D$1", 'categories': f"='Resumo Mensal'!$A$2:$A${num_dias + 1}", 'values': f"='Resumo Mensal'!$D$2:$D${num_dias + 1}"})
