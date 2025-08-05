@@ -20,21 +20,44 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
 
             for arquivo in arquivos_csv:
                 with zip_ref.open(arquivo) as f:
-                    df = pd.read_csv(f, encoding='ISO-8859-1', header=None)
+                    # --- NOVA LÓGICA DE DETEÇÃO AUTOMÁTICA ---
+                    # 1. Espreita a primeira linha para detetar o separador
+                    primeira_linha = f.readline().decode('iso-8859-1')
+                    f.seek(0) # Volta ao início do ficheiro para a leitura do pandas
+
+                    # 2. Define as regras com base no separador encontrado
+                    if ';' in primeira_linha:
+                        separador = ';'
+                        posicao_vazao = 4
+                    else:
+                        separador = ','
+                        posicao_vazao = 5
+
+                    # 3. Lê o ficheiro usando as regras corretas
+                    df = pd.read_csv(f, encoding='ISO-8859-1', header=None, sep=separador)
                     
                     if df.empty:
                         continue
+
+                    # Garante que o ficheiro tem colunas suficientes
+                    if df.shape[1] <= posicao_vazao:
+                        st.warning(f"O ficheiro '{arquivo}' tem um formato inesperado e foi ignorado.")
+                        continue
                         
-                    df_filtrado = df.iloc[:, [0, 1, 2, 5]].copy()
+                    # Usa a posição correta da vazão para a seleção
+                    df_filtrado = df.iloc[:, [0, 1, 2, posicao_vazao]].copy()
                     df_filtrado.columns = ['id', 'data', 'hora', 'vazao_total']
                     
-                    df_filtrado['vazao_total'] = pd.to_numeric(df_filtrado['vazao_total'], errors='coerce')
+                    # Trata a vírgula como decimal, caso exista, antes de converter para número
+                    df_filtrado['vazao_total'] = pd.to_numeric(
+                        df_filtrado['vazao_total'].astype(str).str.replace(',', '.'), 
+                        errors='coerce'
+                    )
                     df_filtrado.dropna(subset=['vazao_total'], inplace=True)
 
                     if df_filtrado.empty:
                         continue
                     
-                    # Coleta apenas os dados essenciais
                     resumos.append({
                         'data': df_filtrado['data'].iloc[0],
                         'hora_final': df_filtrado['hora'].iloc[-1],
@@ -57,16 +80,11 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
 
         df_final = df_final.sort_values(by='data').reset_index(drop=True)
         
-        # Cálculos principais
         df_final['vazao_diaria'] = df_final['vazao_total_final'].diff().fillna(0)
         
-        # --- MUDANÇA: Adicionando a coluna "Situação" ---
-        # Usamos np.where para aplicar a condição de forma eficiente
         df_final['situacao'] = np.where(df_final['vazao_diaria'] > df_final['vazao_outorgada'], 'Irregular', 'Regular')
-        # O primeiro dia, com vazão 0, será sempre "Regular"
         df_final.loc[0, 'situacao'] = 'Regular'
 
-        # Definindo a nova ordem das colunas
         ordem_colunas = ['data', 'hora_final', 'vazao_total_final', 'vazao_diaria', 'vazao_outorgada', 'situacao']
         df_final = df_final[ordem_colunas]
         num_dias = len(df_final)
@@ -76,13 +94,11 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
         
         df_final['data'] = df_final['data'].dt.strftime('%d/%m/%Y')
         
-        # Criando a linha de totais (sem as colunas removidas)
         df_total_row = pd.DataFrame([{'data': 'TOTAL MENSAL', 
                                       'vazao_diaria': consumo_mensal_total,
                                       'vazao_outorgada': outorga_mensal_total}])
         df_final = pd.concat([df_final, df_total_row], ignore_index=True)
 
-        # Atualizando os nomes das colunas para o relatório
         nomes_visuais = {'data': 'Data', 'hora_final': 'Hora Final Leitura', 'vazao_total_final': 'Vazão Acumulada Final', 
                          'vazao_diaria': 'Consumo Diário (m³)', 'vazao_outorgada': 'Outorga Diária (m³)',
                          'situacao': 'Situação'}
@@ -100,26 +116,22 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             integer_format = workbook.add_format({'num_format': '#,##0', 'align': 'center', 'valign': 'vcenter'})
             text_format = workbook.add_format({'num_format': '@', 'align': 'center', 'valign': 'vcenter'})
 
-            # Formatação de cores para a coluna "Situação"
             regular_format = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100', 'align': 'center', 'valign': 'vcenter'})
             irregular_format = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'align': 'center', 'valign': 'vcenter'})
             
-            # Aplica a formatação condicional na coluna F (Situação)
             worksheet.conditional_format(f'F2:F{num_dias + 1}', {'type': 'cell', 'criteria': '==', 'value': '"Regular"', 'format': regular_format})
             worksheet.conditional_format(f'F2:F{num_dias + 1}', {'type': 'cell', 'criteria': '==', 'value': '"Irregular"', 'format': irregular_format})
 
             for col_num, value in enumerate(df_final_formatado.columns.values):
                 worksheet.write(0, col_num, value, header_format)
 
-            # Ajustando a formatação para o novo layout de colunas
-            worksheet.set_column('A:A', 18) # Data
-            worksheet.set_column('B:B', 18) # Hora Final Leitura
-            worksheet.set_column('C:C', 22, integer_format) # Vazão Acumulada Final
-            worksheet.set_column('D:D', 20, text_format) # Consumo Diário (m³)
-            worksheet.set_column('E:E', 20, integer_format) # Outorga Diária (m³)
-            worksheet.set_column('F:F', 15) # Situação
+            worksheet.set_column('A:A', 18)
+            worksheet.set_column('B:B', 18)
+            worksheet.set_column('C:C', 22, integer_format)
+            worksheet.set_column('D:D', 20, text_format)
+            worksheet.set_column('E:E', 20, integer_format)
+            worksheet.set_column('F:F', 15)
 
-            # O gráfico permanece o mesmo, comparando Consumo (D) e Outorga (E)
             chart = workbook.add_chart({'type': 'column'})
             chart.add_series({'name': "='Resumo Mensal'!$D$1", 'categories': f"='Resumo Mensal'!$A$2:$A${num_dias + 1}", 'values': f"='Resumo Mensal'!$D$2:$D${num_dias + 1}"})
             chart.add_series({'name': "='Resumo Mensal'!$E$1", 'values': f"='Resumo Mensal'!$E$2:$E${num_dias + 1}"})
