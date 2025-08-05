@@ -99,8 +99,8 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
                                       'vazao_outorgada': outorga_mensal_total}])
         df_final = pd.concat([df_final, df_total_row], ignore_index=True)
 
-        nomes_visuais = {'data': 'Data', 'hora_final': 'Hora Final Leitura', 'vazao_total_final': 'Vazão Acumulada Final', 
-                         'vazao_diaria': 'Consumo Diário (m³)', 'vazao_outorgada': 'Outorga Diária (m³)',
+        nomes_visuais = {'data': 'Data', 'hora_final': 'Hora Leitura', 'vazao_total_final': 'Leitura do medidor em m³ acumulado', 
+                         'vazao_diaria': 'Consumo (m³/dia)', 'vazao_outorgada': 'Vazão Outorgada Diária (m³)',
                          'situacao': 'Situação'}
         df_final_formatado = df_final.rename(columns=nomes_visuais)
 
