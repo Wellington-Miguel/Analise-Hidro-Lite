@@ -76,7 +76,7 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
         
         df_final['vazao_diaria'] = df_final['vazao_total_final'].diff().fillna(0)
         
-        df_final['situacao'] = np.where(df_final['vazao_diaria'] > df_final['vazao_outorgada'], 'Irregular', 'Regular')
+        df_final['situacao'] = np.where(df_final['vazao_diaria'] < df_final['vazao_outorgada'], 'Irregular', 'Regular')
         df_final.loc[0, 'situacao'] = 'Regular'
 
         ordem_colunas = ['data', 'hora_final', 'vazao_total_final', 'vazao_diaria', 'vazao_outorgada', 'situacao']
@@ -94,7 +94,7 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
         df_final = pd.concat([df_final, df_total_row], ignore_index=True)
 
         nomes_visuais = {'data': 'Data', 'hora_final': 'Hora Leitura', 'vazao_total_final': 'Leitura do medidor em m³ acumulado', 
-                         'vazao_diaria': 'Consumo (m³/dia)', 'vazao_outorgada': 'Vazão Outorgada Diária (m³)',
+                         'vazao_diaria': 'Vazão Registrada (m³/dia)', 'vazao_outorgada': 'Vazão Mínima para Jusante - Outorga (m³/dia)',
                          'situacao': 'Situação'}
         df_final_formatado = df_final.rename(columns=nomes_visuais)
 
@@ -134,7 +134,7 @@ def processar_zip_situacao(arquivo_zip_bytes, outorga_diaria_definida):
             chart = workbook.add_chart({'type': 'column'})
             chart.add_series({'name': "='Resumo Mensal'!$D$1", 'categories': f"='Resumo Mensal'!$A$2:$A${num_dias + 1}", 'values': f"='Resumo Mensal'!$D$2:$D${num_dias + 1}"})
             chart.add_series({'name': "='Resumo Mensal'!$E$1", 'values': f"='Resumo Mensal'!$E$2:$E${num_dias + 1}"})
-            chart.set_title({'name': 'Consumo Diário vs. Outorga Diária'})
+            chart.set_title({'name': 'Vazão registrada x Vazão Mínima para Jusante -  Outorga'})
             chart.set_x_axis({'name': 'Dia'}); chart.set_y_axis({'name': 'Volume (m³)'})
             worksheet.insert_chart('H2', chart, {'x_scale': 1.5, 'y_scale': 1.5})
 
