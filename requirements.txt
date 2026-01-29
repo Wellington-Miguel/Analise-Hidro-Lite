@@ -1,3 +1,4 @@
 pandas
 streamlit
 xlsxwriter
+altair<5
