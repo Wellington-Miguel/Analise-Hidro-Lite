@@ -1,4 +1,4 @@
 pandas
-streamlit
+streamlit>=1.40.0
 xlsxwriter
 altair<5
